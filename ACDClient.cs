@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Collections;
-
+using FarNet.Forms;
 using Azi.Amazon.CloudDrive;
 using Azi.Amazon.CloudDrive.JsonObjects;
 using Newtonsoft.Json;
@@ -46,7 +47,7 @@ namespace FarNet.PCloud
         /// <returns></returns>
         public async Task<AmazonDrive> Authenticate(CancellationToken cs, bool interactiveAuth = true)
         {
-            var Settings = ACDSettings.Default;
+            var Settings = ACDSettings.Default.GetData();
 
             if (Settings.AuthToken != null)
             {
@@ -310,10 +311,19 @@ namespace FarNet.PCloud
             var cs = new CancellationTokenSource();
             var token = cs.Token;
             fileUpload.CancellationToken = token;
-            FileData.Form.Canceled += (object sender, EventArgs e) =>
+            
+            var dlgProp = typeof(Tools.ProgressForm).GetProperty("Dialog", BindingFlags.Instance | BindingFlags.NonPublic);
+            var dlg = dlgProp?.GetValue(FileData.Form) as IDialog;
+            if (dlg != null)
             {
-                cs.Cancel(true);
-            };
+                dlg.Closed += (object sender, AnyEventArgs e) =>
+                {
+                    if (e.Control == null)
+                    {
+                        cs.Cancel(true);
+                    }
+                };
+            }    
 
             var result = await amazon.Files.UploadNew(fileUpload);
 
@@ -375,10 +385,19 @@ namespace FarNet.PCloud
 
                 return position;
             };
-            FileData.Form.Canceled += (object sender, EventArgs e) =>
+
+            var dlgProp = typeof(Tools.ProgressForm).GetProperty("Dialog", BindingFlags.Instance | BindingFlags.NonPublic);
+            var dlg = dlgProp?.GetValue(FileData.Form) as IDialog;
+            if (dlg != null)
             {
-                cs.Cancel(true);
-            };
+                dlg.Closed += (object sender, AnyEventArgs e) =>
+                {
+                    if (e.Control == null)
+                    {
+                        cs.Cancel(true);
+                    }
+                };
+            }    
 
             var result = await amazon.Files.Overwrite(fileUpload);
 
@@ -523,9 +542,9 @@ namespace FarNet.PCloud
         /// <param name="access_token"></param>
         public void OnTokenUpdated(string access_token)
         {
-            var settings = ACDSettings.Default;
+            var settings = ACDSettings.Default.GetData();
             settings.AuthToken = access_token;
-            settings.Save();
+            ACDSettings.Default.Save();
         }
 
         /// <summary>

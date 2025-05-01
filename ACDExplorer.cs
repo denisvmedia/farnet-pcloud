@@ -1,10 +1,11 @@
-
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Threading;
+using FarNet.Forms;
 using FarNet.PCloud.Exceptions;
 using Azi.Amazon.CloudDrive;
 
@@ -159,7 +160,10 @@ namespace FarNet.PCloud
             });
 
             // here we check if there is a file that can be replaced
-            form.Idled += (object sender, EventArgs e) =>
+            var dlgField = typeof(Tools.ProgressForm).GetProperty("Dialog", BindingFlags.Instance | BindingFlags.NonPublic);
+            var dlg = dlgField?.GetValue(form) as IDialog;
+            dlg.TimerInterval = 200;
+            dlg.Timer += (object sender, EventArgs e) =>
             {
                 if (failure != null)
                 {
@@ -167,7 +171,6 @@ namespace FarNet.PCloud
                     failure = null;
                     retryUserChoice = dlg.Display();
                     pauseThreadEvent.Set();
-                    return;
                 }
             };
             jobThread.Start();
@@ -479,7 +482,10 @@ namespace FarNet.PCloud
             });
 
             // here we check if there is a file that can be replaced
-            form.Idled += (object sender, EventArgs e) =>
+            var dlgField = typeof(Tools.ProgressForm).GetProperty("Dialog", BindingFlags.Instance | BindingFlags.NonPublic);
+            var dlg = dlgField?.GetValue(form) as IDialog;
+            dlg.TimerInterval = 200;
+            dlg.Timer += (object sender, EventArgs e) =>
             {
                 if (failure != null) {
                     var dlg = new AutoRetryDialog(UserFriendlyException(failure), "Upload Error");
@@ -643,7 +649,10 @@ namespace FarNet.PCloud
             });
 
             // here we check if there is a file that can be replaced
-            form.Idled += (object sender, EventArgs e) =>
+            var dlgField = typeof(Tools.ProgressForm).GetProperty("Dialog", BindingFlags.Instance | BindingFlags.NonPublic);
+            var dlg = dlgField?.GetValue(form) as IDialog;
+            dlg.TimerInterval = 200;
+            dlg.Timer += (object sender, EventArgs e) =>
             {
                 if (failure != null)
                 {
@@ -1031,12 +1040,22 @@ namespace FarNet.PCloud
             form.Activity = activity;
             form.Title = title;
             form.CanCancel = true;
-            form.Canceled += (object sender, EventArgs e) =>
+
+            var dlgProp = typeof(Tools.ProgressForm).GetProperty("Dialog", BindingFlags.Instance | BindingFlags.NonPublic);
+            var dlg = dlgProp?.GetValue(form) as IDialog;
+            if (dlg != null)
             {
-                form.Close();
-                // we cannot throw and exception here, since it is another thread
-                //throw new OperationCanceledException();
-            };
+                dlg.Closed += (object sender, AnyEventArgs e) =>
+                {
+                    if (e.Control == null)
+                    {
+                        //dlg.Cancel(true);
+                        form.Close();
+                        // we cannot throw and exception here, since it is another thread
+                        //throw new OperationCanceledException();
+                    }
+                };
+            }    
 
             return form;
         }
@@ -1417,7 +1436,10 @@ namespace FarNet.PCloud
             });
 
             // here we check if there is a file that can be replaced
-            form.Idled += (object sender, EventArgs e) =>
+            var dlgField = typeof(Tools.ProgressForm).GetProperty("Dialog", BindingFlags.Instance | BindingFlags.NonPublic);
+            var dlg = dlgField?.GetValue(form) as IDialog;
+            dlg.TimerInterval = 200;
+            dlg.Timer += (object sender, EventArgs e) =>
             {
                 if (failure != null)
                 {

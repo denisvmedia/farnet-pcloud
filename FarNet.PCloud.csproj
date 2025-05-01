@@ -1,101 +1,42 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{BE8CA25E-3E8D-4180-BAB2-C0A68349D8DA}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>FarNet.PCloud</RootNamespace>
-    <AssemblyName>FarNet.PCloud</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems> <!-- THIS LINE FIXES THE DUPLICATE ERROR -->
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Prefer32Bit>false</Prefer32Bit>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems> <!-- THIS LINE FIXES THE DUPLICATE ERROR -->
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <DocumentationFile>bin\Release\FarNet.PCloud.XML</DocumentationFile>
-    <Prefer32Bit>false</Prefer32Bit>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems> <!-- THIS LINE FIXES THE DUPLICATE ERROR -->
   </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="FarNet, Version=5.0.63.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Program Files\Far Manager\FarNet\FarNet.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="FarNet.Settings">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Program Files\Far Manager\FarNet\FarNet.Settings.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="FarNet.Tools, Version=5.0.63.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Program Files\Far Manager\FarNet\FarNet.Tools.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>packages\Newtonsoft.Json.8.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml" />
+    <Compile Include="*.cs" />
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="ACDClient.cs" />
-    <Compile Include="ACDExplorer.cs" />
-    <Compile Include="ACDPanel.cs" />
-    <Compile Include="ACDTool.cs" />
-    <Compile Include="AutoRetryDialog.cs" />
-    <Compile Include="CacheStorage.cs" />
-    <Compile Include="Exceptions\RemoteFileExistsException.cs" />
-    <Compile Include="Exceptions\IOException.cs" />
-    <Compile Include="Exceptions\TaskAbortedException.cs" />
-    <Compile Include="Exceptions\TaskIgnoredException.cs" />
-    <Compile Include="FSItem.cs" />
-    <Compile Include="ACDSettings.cs" />
-    <Compile Include="InputDialog.cs" />
-    <Compile Include="Progress.cs" />
-    <Compile Include="UploadFileData.cs" />
-    <Compile Include="Utility.cs" />
+    <Reference Include="FarNet">
+      <HintPath>farnet-deps\FarNet.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
+
   <ItemGroup>
-    <ProjectReference Include="AmazonCloudDriveApi\AmazonCloudDriveApi\AmazonCloudDriveApi.csproj">
-      <Project>{2c611335-3d92-492f-b3eb-2cf3955f63a1}</Project>
-      <Name>AmazonCloudDriveApi</Name>
-    </ProjectReference>
+    <ProjectReference Include="AmazonCloudDriveApi\AmazonCloudDriveApi\AmazonCloudDriveApi.csproj" />
   </ItemGroup>
+
   <ItemGroup>
-    <None Include="packages.config" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <Install Condition="'$(Install)' == ''">$(FARHOME)\FarNet\Modules</Install>
-  </PropertyGroup>
-  <Target Name="Resources">
-    <GenerateResource Sources="FarNet.PCloud.restext;FarNet.PCloud.ru.restext" OutputResources="Bin\$(Configuration)\FarNet.PCloud.resources;Bin\$(Configuration)\FarNet.PCloud.ru.resources" />
-  </Target>
-  <Target Name="AfterBuild" DependsOnTargets="Resources">
-    <Copy SourceFiles="@(Content);Bin\$(Configuration)\$(AssemblyName).dll;Bin\$(Configuration)\AmazonCloudDriveApi.dll;;Bin\$(Configuration)\Newtonsoft.Json.dll;Bin\$(Configuration)\FarNet.PCloud.resources;Bin\$(Configuration)\FarNet.PCloud.ru.resources" DestinationFolder="$(Install)\$(AssemblyName)" SkipUnchangedFiles="true" />
-  </Target>
 </Project>

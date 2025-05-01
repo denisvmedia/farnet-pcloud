@@ -13,7 +13,6 @@ namespace Azi.Tools
     /// </summary>
     internal static class Retry
     {
-        /// <summary>
         /// Does func and retries if it failed
         /// </summary>
         /// <param name="times">Maximum times to retry</param>

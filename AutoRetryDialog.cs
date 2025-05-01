@@ -99,7 +99,8 @@ namespace FarNet.PCloud
                 _clickedButton = (int)Dialog.Focused.Data;
             };
 
-            Dialog.Idled += (object sender, EventArgs e) =>
+            Dialog.TimerInterval = 200;
+            Dialog.Timer += (object sender, EventArgs e) =>
             {
                 if (AutoClose)
                 {

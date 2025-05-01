@@ -15,6 +15,9 @@ using System.Threading.Tasks;
 using System.Web;
 using Azi.Amazon.CloudDrive.JsonObjects;
 using Azi.Tools;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace Azi.Amazon.CloudDrive
 {
@@ -28,13 +31,14 @@ namespace Azi.Amazon.CloudDrive
         private const string ApiUrl = "https://api.pcloud.com";
         private static readonly TimeSpan GeneralExpiration = TimeSpan.FromMinutes(5);
 
-        private static readonly byte[] DefaultCloseTabResponse = Encoding.UTF8.GetBytes("<SCRIPT>window.close;</SCRIPT>You can close this tab");
+        private static readonly byte[] DefaultCloseTabResponse = Encoding.UTF8.GetBytes("<SCRIPT>alert(\"window.close\");</SCRIPT>You can close this tab");
 
-        private static readonly string DefaultOpenAuthResponse = "<SCRIPT>var win=window.open('{0}', '_blank');var id=setInterval(function(){{if (win.closed||win.location.href.indexOf('localhost')>=0){{clearInterval(id);win.close(); window.close();}}}}, 500);</SCRIPT>start";
+        private static readonly string DefaultOpenAuthResponse = "<SCRIPT>var win=window.open('{0}', '_blank');var id=setInterval(function(){{if (win.closed||win.location.href.indexOf('localhost')>=0){{clearInterval(id);/*win.close(); window.close();*/}}}}, 500);</SCRIPT>start";
 
         private static RequestCachePolicy standartCache = new RequestCachePolicy(RequestCacheLevel.NoCacheNoStore);
 
-        private readonly HttpClient http;
+        private readonly Azi.Tools.HttpClient http;
+        // private readonly System.Net.Http.HttpClient http;
 
         private string clientId;
         private string clientSecret;
@@ -52,7 +56,7 @@ namespace Azi.Amazon.CloudDrive
             this.clientSecret = clientSecret;
             this.clientId = clientId;
             this.token = token;
-            http = new HttpClient(SettingsSetter);
+            http = new Azi.Tools.HttpClient(SettingsSetter);
         }
 
         /// <inheritdoc/>
@@ -80,7 +84,7 @@ namespace Azi.Amazon.CloudDrive
         public byte[] CloseTabResponse { get; set; } = DefaultCloseTabResponse;
 
         /// <inheritdoc/>
-        public async Task<bool> AuthenticationByCode(string code, string redirectUrl)
+        public async Task<bool> AuthenticationByCode2(string code, string redirectUrl)
         {
             var form = new Dictionary<string, string>
                                 {
@@ -102,6 +106,52 @@ namespace Azi.Amazon.CloudDrive
             return false;
         }
 
+        public async Task<bool> AuthenticationByCode(string code, string redirectUrl)
+        {
+            var form = new Dictionary<string, string>
+            {
+                { "code", code },
+                { "client_id", clientId },
+                { "client_secret", clientSecret },
+                { "redirect_uri", redirectUrl },
+                { "grant_type", "authorization_code" }
+            };
+
+            using var httpClient = new System.Net.Http.HttpClient();
+
+            using var content = new FormUrlEncodedContent(form);
+            var response = await httpClient.PostAsync(TokenUrl, content).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Token request failed: " + response.StatusCode);
+                return false;
+            }
+
+            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            try
+            {
+                token = JsonSerializer.Deserialize<AuthToken>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to deserialize token: " + ex);
+                return false;
+            }
+
+            if (token != null)
+            {
+                CallOnTokenUpdate(token.access_token);
+
+                await Account.GetEndpoint().ConfigureAwait(false);
+
+                return true;
+            }
+
+            return false;
+        }
+
         /// <inheritdoc/>
         public string BuildLoginUrl(string redirectUrl)
         {
@@ -110,8 +160,128 @@ namespace Azi.Amazon.CloudDrive
             return $"{LoginUrlBase}?client_id={clientId}&response_type=code&redirect_uri={redirectUrl}";
         }
 
+        public async Task<bool> AuthenticationByExternalBrowserOld3(
+            TimeSpan timeout,
+            CancellationToken? cancelToken = null,
+            string unformatedRedirectUrl = "http://localhost:{0}/signin/",
+            Func<int, int, int> portSelector = null)
+        {
+            string redirectUrl;
+            using (var redirectListener = CreateListener(unformatedRedirectUrl, out redirectUrl, portSelector))
+            {
+                redirectListener.Start();
+
+                var loginUrl = BuildLoginUrl(redirectUrl);
+
+                // Только открываем redirect URL — он отдаст JS, который сам откроет loginUrl
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = redirectUrl,
+                    UseShellExecute = true
+                });
+
+                for (var times = 0; times < 2; times++)
+                {
+                    var contextTask = redirectListener.GetContextAsync();
+                    var timeoutTask = cancelToken != null
+                        ? Task.Delay(timeout, cancelToken.Value)
+                        : Task.Delay(timeout);
+
+                    var completed = await Task.WhenAny(contextTask, timeoutTask).ConfigureAwait(false);
+
+                    if (completed == timeoutTask)
+                    {
+                        if (timeoutTask.IsCanceled)
+                            return false;
+
+                        throw new TimeoutException("No redirection detected");
+                    }
+
+                    var context = await contextTask.ConfigureAwait(false);
+                    var uri = context.Request.Url;
+
+                    if (uri == null)
+                    {
+                        await SendResponse(context.Response, DefaultCloseTabResponse).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    if (uri.Query.Contains("code=") || uri.Fragment.Contains("access_token") || uri.Query.Contains("error="))
+                    {
+                        await SendResponse(context.Response, DefaultCloseTabResponse).ConfigureAwait(false);
+                        await ProcessRedirect(context, redirectUrl).ConfigureAwait(false);
+                        return true;
+                    }
+                    else
+                    {
+                        var html = string.Format(DefaultOpenAuthResponse, loginUrl);
+                        var bytes = Encoding.UTF8.GetBytes(html);
+                        await SendResponse(context.Response, bytes).ConfigureAwait(false);
+                        continue;
+                    }
+                }
+            }
+
+            return token != null;
+        }
+
+        public async Task<bool> AuthenticationByExternalBrowser(
+            TimeSpan timeout,
+            CancellationToken? cancelToken = null,
+            string unformatedRedirectUrl = "http://localhost:{0}/signin/",
+            Func<int, int, int> portSelector = null)
+        {
+            string redirectUrl;
+            using (var redirectListener = CreateListener(unformatedRedirectUrl, out redirectUrl, portSelector))
+            {
+                redirectListener.Start();
+
+                var loginurl = BuildLoginUrl(redirectUrl);
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = redirectUrl,
+                    UseShellExecute = true
+                };
+
+                using (var tabProcess = Process.Start(psi))
+                {
+                    for (var times = 0; times < 2; times++)
+                    {
+                        var task = redirectListener.GetContextAsync();
+                        var timeoutTask = (cancelToken != null) ? Task.Delay(timeout, cancelToken.Value) : Task.Delay(timeout);
+                        var anytask = await Task.WhenAny(task, timeoutTask).ConfigureAwait(false);
+                        if (anytask == task)
+                        {
+                            var context = await task.ConfigureAwait(false);
+                            if (times == 0)
+                            {
+                                var loginResponse = Encoding.UTF8.GetBytes(string.Format(DefaultOpenAuthResponse, loginurl));
+                                await SendResponse(context.Response, loginResponse).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                await ProcessRedirect(context, redirectUrl).ConfigureAwait(false);
+                            }
+                        }
+                        else
+                        {
+                            if (timeoutTask.IsCanceled)
+                            {
+                                return false;
+                            }
+
+                            throw new TimeoutException("No redirection detected");
+                        }
+                    }
+                }
+            }
+
+            return token != null;
+        }
+
         /// <inheritdoc/>
-        public async Task<bool> AuthenticationByExternalBrowser(TimeSpan timeout, CancellationToken? cancelToken = null, string unformatedRedirectUrl = "http://localhost:{0}/signin/", Func<int, int, int> portSelector = null)
+        public async Task<bool> AuthenticationByExternalBrowserOld(TimeSpan timeout, CancellationToken? cancelToken = null, string unformatedRedirectUrl = "http://localhost:{0}/signin/", Func<int, int, int> portSelector = null)
         {
             string redirectUrl;
             using (var redirectListener = CreateListener(unformatedRedirectUrl, out redirectUrl, portSelector))
@@ -217,7 +387,13 @@ namespace Azi.Amazon.CloudDrive
                 throw new InvalidOperationException(error);
             }
 
+
             var code = HttpUtility.ParseQueryString(context.Request.Url.Query).Get("code");
+            //if (code == null)
+            //{
+            //    Console.WriteLine(context.Request.Url.Query);
+            //    Thread.Sleep(10_000);
+            //}
 
             await SendResponse(context.Response, CloseTabResponse).ConfigureAwait(false);
 
@@ -231,7 +407,7 @@ namespace Azi.Amazon.CloudDrive
             await response.OutputStream.WriteAsync(body, 0, body.Length).ConfigureAwait(false);
             response.OutputStream.Close();
         }
-
+    
         private async Task SettingsSetter(HttpWebRequest client)
         {
             // if (token != null && !updatingToken)

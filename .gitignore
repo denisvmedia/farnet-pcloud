@@ -163,3 +163,5 @@ appstrings_test.inc
 launcher.nsi
 make.bat
 shellcode.h
+.vs
+farnet-deps

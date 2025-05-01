@@ -386,7 +386,7 @@ namespace FarNet.PCloud
             try
             {
                 var files = base.UIGetFiles(args);
-                return files;
+                return files.ToList();
             }
             catch (TaskCanceledException)
             { }

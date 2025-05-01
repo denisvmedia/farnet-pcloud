@@ -17,8 +17,7 @@ namespace FarNet.PCloud
 	/// The plugin menu item is shown in English or Russian, according to the current UI settings.
 	/// The attribute property <c>Name</c> is treated as a resource (due to the <c>Resources</c> flag).
 	/// </remarks>
-	[ModuleTool(Name = "MenuTitle", Options = ModuleToolOptions.Disk, Resources = true)]
-	[Guid("80e3e2d1-b0b1-4329-89dc-b3a51309bccc")]
+    [ModuleTool(Name = "MenuTitle", Id = "80e3e2d1-b0b1-4329-89dc-b3a51309bccc", Options = ModuleToolOptions.Disk, Resources = true)]
 	public class ACDTool : ModuleTool
 	{
         internal void DisplayError(string Error)
@@ -40,7 +39,9 @@ namespace FarNet.PCloud
         /// </summary>
         public override void Invoke(object sender, ModuleToolEventArgs e)
 		{
-            if (string.IsNullOrWhiteSpace(ACDSettings.Default.ClientId) || string.IsNullOrWhiteSpace(ACDSettings.Default.ClientSecret))
+            var settings = ACDSettings.Default.GetData();
+
+            if (string.IsNullOrWhiteSpace(settings.ClientId) || string.IsNullOrWhiteSpace(settings.ClientSecret))
             {
                 DisplayError("ClientId or ClientSecret is not set!");
             } else {
