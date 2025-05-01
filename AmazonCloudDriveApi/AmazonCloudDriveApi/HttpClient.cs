@@ -8,12 +8,20 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Azi.Tools
 {
+    public interface IHttpWebResponse
+    {
+        Stream GetResponseStream();
+        HttpStatusCode StatusCode { get; }
+        string StatusDescription { get; }
+        WebHeaderCollection Headers { get; }
+    }
     internal class HttpClient
     {
         private const int RetryTimes = 3;
@@ -69,7 +77,7 @@ namespace Azi.Tools
 
         public async Task<R> Send<P, R>(HttpMethod method, string url, P obj)
         {
-            var content = new StringContent(JsonSerializer.Serialize(obj), Encoding.UTF8, "application/json");
+            var content = new StringContent(JsonConvert.SerializeObject(obj), Encoding.UTF8, "application/json");
             var request = new HttpRequestMessage(method, url) { Content = content };
             var response = await client.SendAsync(request);
             return await ReadAsAsync<R>(response);
@@ -89,7 +97,7 @@ namespace Azi.Tools
             return (int)stream.Position;
         }
 
-        public async Task GetToStreamAsync(string url, Func<HttpWebResponse, Task> streammer, long? fileOffset = null, long? length = null)
+        public async Task GetToStreamAsync(string url, Func<IHttpWebResponse, Task> streammer, long? fileOffset = null, long? length = null)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, url);
 
@@ -110,7 +118,7 @@ namespace Azi.Tools
             }
 
             var stream = await responseMessage.Content.ReadAsStreamAsync();
-            var fakeResponse = new HttpWebResponseAdapter(responseMessage, stream);
+            using var fakeResponse = new HttpWebResponseAdapter(responseMessage, stream);
 
             await streammer(fakeResponse);
         }
@@ -173,7 +181,7 @@ namespace Azi.Tools
                 }
             }
 
-            using var fileStream = file.OpenStream();
+            using var fileStream = file.StreamOpener();
             var streamContent = new StreamContent(fileStream);
             streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
             content.Add(streamContent, file.FormName, file.FileName);
@@ -186,8 +194,8 @@ namespace Azi.Tools
                 await HandleBadResponse(response);
             }
 
-            var result = await response.Content.ReadAsStreamAsync();
-            return await JsonSerializer.DeserializeAsync<R>(result);
+            var result = await response.Content.ReadAsStringAsync();
+            return JsonConvert.DeserializeObject<R>(result);
         }
 
         private async Task<R> ReadAsAsync<R>(HttpResponseMessage response)
@@ -197,7 +205,9 @@ namespace Azi.Tools
                 await HandleBadResponse(response);
             }
             var stream = await response.Content.ReadAsStreamAsync();
-            return await JsonSerializer.DeserializeAsync<R>(stream);
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+            return JsonConvert.DeserializeObject<R>(json);
         }
 
         private async Task HandleBadResponse(HttpResponseMessage response)
@@ -217,7 +227,7 @@ namespace Azi.Tools
         }
     }
 
-    internal class HttpWebResponseAdapter : HttpWebResponse
+    internal class HttpWebResponseAdapter : IHttpWebResponse, IDisposable
     {
         private readonly HttpResponseMessage message;
         private readonly Stream stream;
@@ -228,13 +238,13 @@ namespace Azi.Tools
             this.stream = stream;
         }
 
-        public override Stream GetResponseStream() => stream;
+        public Stream GetResponseStream() => stream;
 
-        public override HttpStatusCode StatusCode => message.StatusCode;
+        public HttpStatusCode StatusCode => message.StatusCode;
 
-        public override string StatusDescription => message.ReasonPhrase;
+        public string StatusDescription => message.ReasonPhrase;
 
-        public override WebHeaderCollection Headers
+        public WebHeaderCollection Headers
         {
             get
             {
@@ -246,15 +256,11 @@ namespace Azi.Tools
                 return headers;
             }
         }
-    }
 
-    internal class SendFileInfo
-    {
-        public Func<Stream> OpenStream { get; set; } // заменено имя свойства
-        public string FormName { get; set; }
-        public string FileName { get; set; }
-        public Dictionary<string, string> Parameters { get; set; }
-        public CancellationToken? CancellationToken { get; set; }
-        public Func<long, long> Progress { get; set; }
+        public void Dispose()
+        {
+            stream?.Dispose();
+            message?.Dispose();
+        }
     }
 }

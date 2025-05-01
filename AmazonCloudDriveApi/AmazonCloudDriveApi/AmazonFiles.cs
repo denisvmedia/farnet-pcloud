@@ -31,7 +31,7 @@ namespace Azi.Amazon.CloudDrive
         }
 
         /// <inheritdoc/>
-        async Task IAmazonFiles.Download(string id, Func<HttpWebResponse, Task> streammer, long? fileOffset, long? length)
+        async Task IAmazonFiles.Download(string id, Func<IHttpWebResponse, Task> streammer, long? fileOffset, long? length)
         {
             var url = string.Format("{0}nodes/{1}/content", await GetContentUrl().ConfigureAwait(false), id);
             await http.GetToStreamAsync(url, streammer, fileOffset, length).ConfigureAwait(false);

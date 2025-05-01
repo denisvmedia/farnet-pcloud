@@ -8,6 +8,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Azi.Amazon.CloudDrive.JsonObjects;
+using Azi.Tools;
 
 namespace Azi.Amazon.CloudDrive
 {
@@ -24,7 +25,7 @@ namespace Azi.Amazon.CloudDrive
         /// <param name="fileOffset">Offset in file to download from. By default is null to start from the beginning.</param>
         /// <param name="length">Length of part of file to download. By default is null to download everything to the end of file.</param>
         /// <returns>Async task</returns>
-        Task Download(string id, Func<HttpWebResponse, Task> streammer, long? fileOffset = default(long?), long? length = default(long?));
+        Task Download(string id, Func<IHttpWebResponse, Task> streammer, long? fileOffset = default(long?), long? length = default(long?));
 
         /// <summary>
         /// Downloads file to byte buffer
